@@ -1,7 +1,9 @@
-﻿using Newtonsoft.Json;
+﻿using System.Diagnostics;
+using Newtonsoft.Json;
 
 namespace TrelloApi
 {
+	[DebuggerDisplay("{Name}, {Initials}, {UserId}")]
 	public class TrelloMember
 	{
 		[JsonProperty("avatarHash")]
@@ -15,5 +17,9 @@ namespace TrelloApi
 
 		[JsonProperty("username")]
 		public string UserId { get; internal set; }
+		
+		[JsonProperty("url")]
+		public string Url { get; internal set; }
+		
 	}
 }

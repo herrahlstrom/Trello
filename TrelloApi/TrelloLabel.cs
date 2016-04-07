@@ -1,7 +1,9 @@
-﻿using Newtonsoft.Json;
+﻿using System.Diagnostics;
+using Newtonsoft.Json;
 
 namespace TrelloApi
 {
+	[DebuggerDisplay("{Name}, {Color}")]
 	public class TrelloLabel
 	{
 		[JsonProperty("idBoard")]

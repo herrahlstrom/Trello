@@ -58,9 +58,18 @@ namespace TrelloApi
 			return JsonConvert.DeserializeObject<IList<TrelloBoard>>(SendRequest($"members/{member.UserId}/boards/all", "fields=closed,idOrganization,name,starred"));
 		}
 
+		public IList<TrelloCard> GetCards(TrelloBoard board)
+		{
+			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"board/{board.BoardId}/cards", "fields=closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
+		}
+
 		public IList<TrelloCard> GetCards(TrelloMember member)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"members/{member.UserId}/cards", "fields=closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
+			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"members/{member.UserId}/cards", "fields=id,closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
+		}
+		public IList<BoardList> GetLists(TrelloBoard board)
+		{
+			return JsonConvert.DeserializeObject<IList<BoardList>>(SendRequest($"board/{board.BoardId}/lists", "fields=closed,idBoard,name,pos"));
 		}
 
 		public TrelloMember GetMe()
@@ -70,7 +79,20 @@ namespace TrelloApi
 
 		public TrelloMember GetMember(string memberId)
 		{
-			return JsonConvert.DeserializeObject<TrelloMember>(SendRequest($"members/{memberId}", "fields=avatarHash,initials,fullName,username"));
+			return JsonConvert.DeserializeObject<TrelloMember>(SendRequest($"members/{memberId}", "fields=avatarHash,initials,fullName,username,url"));
+		}
+
+		public IList<TrelloMember> GetMembers(TrelloBoard board)
+		{
+			return JsonConvert.DeserializeObject<IList<TrelloMember>>(SendRequest($"board/{board.BoardId}/members", "fields=avatarHash,initials,fullName,username,url"));
+		}
+		public IList<TrelloLabel> GetLabels(TrelloBoard board)
+		{
+			return JsonConvert.DeserializeObject<IList<TrelloLabel>>(SendRequest($"board/{board.BoardId}/labels", "fields=id,color,idBoard,name"));
+		}
+		public IList<TrelloChecklist> GetChecklists(TrelloCard card)
+		{
+			return JsonConvert.DeserializeObject<IList<TrelloChecklist>>(SendRequest($"card/{card.CardId}/checklists", "fields=idBoard,idCard,name,pos", "checkItem_fields=name,pos,state,type"));
 		}
 
 		private string SendRequest(string path, params string[] parameters)
@@ -87,7 +109,7 @@ namespace TrelloApi
 			if (!string.IsNullOrWhiteSpace(cacheValue))
 				return cacheValue;
 
-			using (var wc = new WebClient {Encoding = Encoding.UTF8})
+			using (var wc = new WebClient { Encoding = Encoding.UTF8 })
 			{
 				try
 				{

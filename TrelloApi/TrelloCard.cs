@@ -1,13 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Newtonsoft.Json;
 
 namespace TrelloApi
 {
+	[DebuggerDisplay("{Name}")]
 	public class TrelloCard
 	{
 		[JsonProperty("idBoard")]
 		public string BoardId { get; set; }
+
+		[JsonProperty("id")]
+		public string CardId { get; set; }
 
 		[JsonProperty("idChecklists")]
 		public IList<string> ChecklistIds { get; set; }
