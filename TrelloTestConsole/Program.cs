@@ -43,7 +43,7 @@ namespace TrelloTestConsole
 				{
 					if (retryCounter-- < 1)
 						return null;
-					Process.Start(Trello.GetTokenUri("TrelloTestConsole").AbsoluteUri);
+					Process.Start(Trello.GetTokenUri("TrelloTestConsole-" + Environment.MachineName).AbsoluteUri);
 					Console.WriteLine("Access denied, enter new token:");
 					token = Console.ReadLine();
 					if (string.IsNullOrWhiteSpace(token))

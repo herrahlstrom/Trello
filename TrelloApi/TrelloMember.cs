@@ -1,5 +1,4 @@
 ﻿using Newtonsoft.Json;
-using System.Collections.Generic;
 
 namespace TrelloApi
 {
@@ -16,6 +15,5 @@ namespace TrelloApi
 
 		[JsonProperty("username")]
 		public string UserId { get; internal set; }
-
 	}
 }

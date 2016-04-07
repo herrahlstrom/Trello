@@ -1,13 +1,11 @@
-﻿using Microsoft.Win32;
-using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.Caching;
 using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Win32;
+using Newtonsoft.Json;
 using TrelloApi.Exceptions;
 
 namespace TrelloApi
@@ -30,10 +28,12 @@ namespace TrelloApi
 				return regKey?.GetValue(ApplicationKey, "") as string;
 			}
 		}
+
 		public static Uri GetTokenUri(string applicationName)
 		{
-			return new Uri($"https://trello.com/1/connect?key={Trello.ApplicationKey}&name={applicationName}&response_type=token");
+			return new Uri($"https://trello.com/1/connect?key={ApplicationKey}&name={applicationName}&response_type=token");
 		}
+
 		public static void SaveToken(string token)
 		{
 			if (token == null)
@@ -50,25 +50,27 @@ namespace TrelloApi
 			using (var newRk = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\TrelloApi\Tokens", RegistryKeyPermissionCheck.ReadWriteSubTree))
 			{
 				newRk?.SetValue(ApplicationKey, token);
-				return;
 			}
+		}
+
+		public IList<TrelloBoard> GetBoards(TrelloMember member)
+		{
+			return JsonConvert.DeserializeObject<IList<TrelloBoard>>(SendRequest($"members/{member.UserId}/boards/all", "fields=closed,idOrganization,name,starred"));
+		}
+
+		public IList<TrelloCard> GetCards(TrelloMember member)
+		{
+			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"members/{member.UserId}/cards", "fields=closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
 		}
 
 		public TrelloMember GetMe()
 		{
 			return GetMember("me");
 		}
+
 		public TrelloMember GetMember(string memberId)
 		{
 			return JsonConvert.DeserializeObject<TrelloMember>(SendRequest($"members/{memberId}", "fields=avatarHash,initials,fullName,username"));
-		}
-		public IList<TrelloBoard> GetBoards(TrelloMember member)
-		{
-			return JsonConvert.DeserializeObject<IList<TrelloBoard>>(SendRequest($"members/{member.UserId}/boards/all", "fields=closed,idOrganization,name,starred"));
-		}
-		public IList<TrelloCard> GetCards(TrelloMember member)
-		{
-			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"members/{member.UserId}/cards", "fields=closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
 		}
 
 		private string SendRequest(string path, params string[] parameters)
@@ -76,16 +78,16 @@ namespace TrelloApi
 			if (string.IsNullOrWhiteSpace(_token))
 				throw new NoAccessException("Missing Token!");
 
-			string url = $"{UrlBase}{path}?key={Trello.ApplicationKey}&token={_token}";
+			string url = $"{UrlBase}{path}?key={ApplicationKey}&token={_token}";
 			if (parameters != null && parameters.Any())
 				url += "&" + string.Join("&", parameters);
 
 			string cacheKey = url;
-			var cacheValue = MemoryCache.Default.Get(cacheKey) as string;
+			string cacheValue = MemoryCache.Default.Get(cacheKey) as string;
 			if (!string.IsNullOrWhiteSpace(cacheValue))
 				return cacheValue;
 
-			using (var wc = new WebClient { Encoding = Encoding.UTF8 })
+			using (var wc = new WebClient {Encoding = Encoding.UTF8})
 			{
 				try
 				{
@@ -102,6 +104,5 @@ namespace TrelloApi
 				}
 			}
 		}
-
 	}
 }
