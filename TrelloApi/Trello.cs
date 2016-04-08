@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.Caching;
@@ -14,12 +15,18 @@ namespace TrelloApi
 	{
 		internal const string ApplicationKey = "b15f1715df3edb45f53d369c36cbbfb2";
 		private const string UrlBase = "https://api.trello.com/1/";
-		private readonly string _token;
+		private readonly TrelloOptions _opts;
+		private TrelloMember _me;
 
-		public Trello(string token)
+		public Trello(TrelloOptions opts)
 		{
-			_token = token;
+			if (string.IsNullOrWhiteSpace(opts.Token))
+				throw new NoAccessException("Missing Token!");
+
+			_opts = opts;
 		}
+
+		public TrelloMember Me => _me ?? (_me = GetMember("me"));
 
 		public static string GetLastToken()
 		{
@@ -31,7 +38,7 @@ namespace TrelloApi
 
 		public static Uri GetTokenUri(string applicationName)
 		{
-			return new Uri($"https://trello.com/1/connect?key={ApplicationKey}&name={applicationName}&response_type=token");
+			return new Uri($"https://trello.com/1/connect?expiration=30days&key={ApplicationKey}&name={applicationName}&response_type=token");
 		}
 
 		public static void SaveToken(string token)
@@ -55,26 +62,32 @@ namespace TrelloApi
 
 		public IList<TrelloBoard> GetBoards(TrelloMember member)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloBoard>>(SendRequest($"members/{member.UserId}/boards/all", "fields=closed,idOrganization,name,starred"));
+			return JsonConvert.DeserializeObject<IList<TrelloBoard>>(SendRequest($"members/{member.Id}/boards/all", "fields=closed,idOrganization,name,starred"));
 		}
 
 		public IList<TrelloCard> GetCards(TrelloBoard board)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"board/{board.BoardId}/cards", "fields=closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
+			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"board/{board.Id}/cards", "fields=closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
 		}
 
 		public IList<TrelloCard> GetCards(TrelloMember member)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"members/{member.UserId}/cards", "fields=id,closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
-		}
-		public IList<BoardList> GetLists(TrelloBoard board)
-		{
-			return JsonConvert.DeserializeObject<IList<BoardList>>(SendRequest($"board/{board.BoardId}/lists", "fields=closed,idBoard,name,pos"));
+			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"members/{member.Id}/cards", "fields=id,closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
 		}
 
-		public TrelloMember GetMe()
+		public IList<TrelloChecklist> GetChecklists(TrelloCard card)
 		{
-			return GetMember("me");
+			return JsonConvert.DeserializeObject<IList<TrelloChecklist>>(SendRequest($"card/{card.Id}/checklists", "fields=idBoard,idCard,name,pos", "checkItem_fields=name,pos,state"));
+		}
+
+		public IList<TrelloLabel> GetLabels(TrelloBoard board)
+		{
+			return JsonConvert.DeserializeObject<IList<TrelloLabel>>(SendRequest($"board/{board.Id}/labels", "fields=id,color,idBoard,name"));
+		}
+
+		public IList<BoardList> GetLists(TrelloBoard board)
+		{
+			return JsonConvert.DeserializeObject<IList<BoardList>>(SendRequest($"board/{board.Id}/lists", "fields=closed,idBoard,name,pos"));
 		}
 
 		public TrelloMember GetMember(string memberId)
@@ -84,30 +97,27 @@ namespace TrelloApi
 
 		public IList<TrelloMember> GetMembers(TrelloBoard board)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloMember>>(SendRequest($"board/{board.BoardId}/members", "fields=avatarHash,initials,fullName,username,url"));
-		}
-		public IList<TrelloLabel> GetLabels(TrelloBoard board)
-		{
-			return JsonConvert.DeserializeObject<IList<TrelloLabel>>(SendRequest($"board/{board.BoardId}/labels", "fields=id,color,idBoard,name"));
-		}
-		public IList<TrelloChecklist> GetChecklists(TrelloCard card)
-		{
-			return JsonConvert.DeserializeObject<IList<TrelloChecklist>>(SendRequest($"card/{card.CardId}/checklists", "fields=idBoard,idCard,name,pos", "checkItem_fields=name,pos,state,type"));
+			return JsonConvert.DeserializeObject<IList<TrelloMember>>(SendRequest($"board/{board.Id}/members", "fields=avatarHash,initials,fullName,username,url"));
 		}
 
 		private string SendRequest(string path, params string[] parameters)
 		{
-			if (string.IsNullOrWhiteSpace(_token))
-				throw new NoAccessException("Missing Token!");
-
-			string url = $"{UrlBase}{path}?key={ApplicationKey}&token={_token}";
+			string url = $"{UrlBase}{path}?key={ApplicationKey}&token={_opts.Token}";
 			if (parameters != null && parameters.Any())
 				url += "&" + string.Join("&", parameters);
 
-			string cacheKey = url;
-			string cacheValue = MemoryCache.Default.Get(cacheKey) as string;
-			if (!string.IsNullOrWhiteSpace(cacheValue))
-				return cacheValue;
+			// Read from cache
+			string cacheKey = CalculateHash(url).ToString();
+			if (_opts.CacheTime.TotalSeconds > 0)
+			{
+				string cacheValue;
+				if (_opts.PersistentCache)
+					cacheValue = PersistentCache.GetValue(cacheKey);
+				else
+					cacheValue = MemoryCache.Default.Get(cacheKey) as string;
+				if (!string.IsNullOrWhiteSpace(cacheValue))
+					return cacheValue;
+			}
 
 			using (var wc = new WebClient { Encoding = Encoding.UTF8 })
 			{
@@ -115,8 +125,10 @@ namespace TrelloApi
 				{
 					string resp = wc.DownloadString(url);
 
-					// Cache everything for a short time. This helps surprised worth much
-					MemoryCache.Default.Set(cacheKey, resp, DateTimeOffset.Now.AddMinutes(1));
+					if (_opts.PersistentCache && _opts.CacheTime.TotalSeconds > 0)
+						PersistentCache.SetValue(cacheKey, resp, DateTime.Now.Add(_opts.CacheTime), false);
+					else if (_opts.CacheTime.TotalSeconds > 0)
+						MemoryCache.Default.Set(cacheKey, resp, DateTimeOffset.Now.Add(_opts.CacheTime));
 
 					return resp;
 				}
@@ -126,5 +138,28 @@ namespace TrelloApi
 				}
 			}
 		}
+
+		#region Persistens cache
+
+		private DiskStringCache _persistentCache;
+		internal DiskStringCache PersistentCache => _persistentCache ?? (_persistentCache = new DiskStringCache(Path.Combine(Path.GetTempPath(), "TrelloCache.cache")));
+
+		public void SavePersistentCache()
+		{
+			_persistentCache?.Save();
+		}
+
+		private static ulong CalculateHash(string str)
+		{
+			ulong hashedValue = 3074457345618258791ul;
+			foreach (char t in str)
+			{
+				hashedValue += t;
+				hashedValue *= 3074457345618258799ul;
+			}
+			return hashedValue;
+		}
+
+		#endregion
 	}
 }

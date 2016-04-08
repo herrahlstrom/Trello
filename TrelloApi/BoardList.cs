@@ -7,6 +7,9 @@ namespace TrelloApi
 		[JsonProperty("closed")]
 		public string Closed { get; set; }
 
+		/// <summary>
+		/// Id of the board that this list is associated to
+		/// </summary>
 		[JsonProperty("idBoard")]
 		public string BoardId { get; set; }
 

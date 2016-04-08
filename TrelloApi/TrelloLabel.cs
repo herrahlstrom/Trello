@@ -1,17 +1,30 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using Newtonsoft.Json;
 
 namespace TrelloApi
 {
+	/// <summary>
+	///     Label that can be associated to a card
+	/// </summary>
 	[DebuggerDisplay("{Name}, {Color}")]
-	public class TrelloLabel
+	public class TrelloLabel : IComparable<TrelloLabel>, IEquatable<TrelloLabel>
 	{
+		/// <summary>
+		///     Id of the board that this label is associated to
+		/// </summary>
 		[JsonProperty("idBoard")]
 		public string BoardId { get; set; }
 
+		/// <summary>
+		///     Colorname in text
+		/// </summary>
 		[JsonProperty("color")]
 		public string Color { get; set; }
 
+		/// <summary>
+		///     Color that can be used in html-pages
+		/// </summary>
 		public string HexColor
 		{
 			get
@@ -37,10 +50,28 @@ namespace TrelloApi
 			}
 		}
 
+		/// <summary>
+		///     Label id
+		/// </summary>
 		[JsonProperty("id")]
 		public string Id { get; set; }
 
+		/// <summary>
+		///     Labeltext
+		/// </summary>
 		[JsonProperty("name")]
 		public string Name { get; set; }
+
+		public int CompareTo(TrelloLabel other)
+		{
+			return string.Compare(Name, other.Name, StringComparison.InvariantCultureIgnoreCase);
+		}
+
+		public bool Equals(TrelloLabel other)
+		{
+			if (string.IsNullOrWhiteSpace(Id))
+				return false;
+			return string.Compare(Id, other.Id, StringComparison.InvariantCultureIgnoreCase) == 0;
+		}
 	}
 }

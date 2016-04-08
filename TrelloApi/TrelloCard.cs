@@ -6,13 +6,16 @@ using Newtonsoft.Json;
 namespace TrelloApi
 {
 	[DebuggerDisplay("{Name}")]
-	public class TrelloCard
+	public class TrelloCard : IComparable<TrelloCard>, IEquatable<TrelloCard>
 	{
+		/// <summary>
+		/// Id of the board that this card is associated to
+		/// </summary>
 		[JsonProperty("idBoard")]
 		public string BoardId { get; set; }
 
 		[JsonProperty("id")]
-		public string CardId { get; set; }
+		public string Id { get; set; }
 
 		[JsonProperty("idChecklists")]
 		public IList<string> ChecklistIds { get; set; }
@@ -42,9 +45,21 @@ namespace TrelloApi
 		public string Name { get; set; }
 
 		[JsonProperty("pos")]
-		public string Pos { get; set; }
+		public int Pos { get; set; }
 
 		[JsonProperty("url")]
 		public string Url { get; set; }
+
+		public int CompareTo(TrelloCard other)
+		{
+			return Pos.CompareTo(other.Pos);
+		}
+
+		public bool Equals(TrelloCard other)
+		{
+			if (string.IsNullOrWhiteSpace(Id))
+				return false;
+			return string.Compare(Id, other.Id, StringComparison.InvariantCultureIgnoreCase) == 0;
+		}
 	}
 }
