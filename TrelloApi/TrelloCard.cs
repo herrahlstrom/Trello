@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 namespace TrelloApi
 {
 	[DebuggerDisplay("{Name}")]
-	public class TrelloCard : IComparable<TrelloCard>, IEquatable<TrelloCard>
+	public class TrelloCard : IComparable<TrelloCard>
 	{
 		/// <summary>
 		/// Id of the board that this card is associated to
@@ -45,7 +45,7 @@ namespace TrelloApi
 		public string Name { get; set; }
 
 		[JsonProperty("pos")]
-		public int Pos { get; set; }
+		public float Pos { get; set; }
 
 		[JsonProperty("url")]
 		public string Url { get; set; }
@@ -53,13 +53,6 @@ namespace TrelloApi
 		public int CompareTo(TrelloCard other)
 		{
 			return Pos.CompareTo(other.Pos);
-		}
-
-		public bool Equals(TrelloCard other)
-		{
-			if (string.IsNullOrWhiteSpace(Id))
-				return false;
-			return string.Compare(Id, other.Id, StringComparison.InvariantCultureIgnoreCase) == 0;
 		}
 	}
 }

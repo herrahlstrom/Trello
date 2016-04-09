@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace TrelloApi
 {
@@ -8,7 +9,7 @@ namespace TrelloApi
 	///     Member in trello
 	/// </summary>
 	[DebuggerDisplay("{Name}, {Initials}, {Id}")]
-	public class TrelloMember : IComparable<TrelloMember>, IEquatable<TrelloMember>
+	public class TrelloMember : IComparable<TrelloMember>
 	{
 		[JsonProperty("avatarHash")]
 		public string AvatarHash { get; set; }
@@ -19,6 +20,12 @@ namespace TrelloApi
 		///     User if of the member
 		/// </summary>
 		[JsonProperty("username")]
+		public string Username { get; internal set; }
+
+		/// <summary>
+		///     User if of the member
+		/// </summary>
+		[JsonProperty("id")]
 		public string Id { get; internal set; }
 
 		/// <summary>
@@ -42,13 +49,6 @@ namespace TrelloApi
 		public int CompareTo(TrelloMember other)
 		{
 			return string.Compare(Name, other.Name, StringComparison.InvariantCultureIgnoreCase);
-		}
-
-		public bool Equals(TrelloMember other)
-		{
-			if (string.IsNullOrWhiteSpace(Id))
-				return false;
-			return string.Compare(Id, other.Id, StringComparison.InvariantCultureIgnoreCase) == 0;
 		}
 	}
 }

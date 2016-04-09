@@ -8,7 +8,7 @@ namespace TrelloApi
 	///     Label that can be associated to a card
 	/// </summary>
 	[DebuggerDisplay("{Name}, {Color}")]
-	public class TrelloLabel : IComparable<TrelloLabel>, IEquatable<TrelloLabel>
+	public class TrelloLabel : IComparable<TrelloLabel>
 	{
 		/// <summary>
 		///     Id of the board that this label is associated to
@@ -65,13 +65,6 @@ namespace TrelloApi
 		public int CompareTo(TrelloLabel other)
 		{
 			return string.Compare(Name, other.Name, StringComparison.InvariantCultureIgnoreCase);
-		}
-
-		public bool Equals(TrelloLabel other)
-		{
-			if (string.IsNullOrWhiteSpace(Id))
-				return false;
-			return string.Compare(Id, other.Id, StringComparison.InvariantCultureIgnoreCase) == 0;
 		}
 	}
 }

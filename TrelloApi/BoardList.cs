@@ -17,6 +17,6 @@ namespace TrelloApi
 		public string Name { get; set; }
 
 		[JsonProperty("pos")]
-		public string Pos { get; set; }
+		public float Pos { get; set; }
 	}
 }

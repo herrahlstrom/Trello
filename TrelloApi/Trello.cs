@@ -92,12 +92,12 @@ namespace TrelloApi
 
 		public TrelloMember GetMember(string memberId)
 		{
-			return JsonConvert.DeserializeObject<TrelloMember>(SendRequest($"members/{memberId}", "fields=avatarHash,initials,fullName,username,url"));
+			return JsonConvert.DeserializeObject<TrelloMember>(SendRequest($"members/{memberId}", "fields=id,avatarHash,initials,fullName,username,url"));
 		}
 
 		public IList<TrelloMember> GetMembers(TrelloBoard board)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloMember>>(SendRequest($"board/{board.Id}/members", "fields=avatarHash,initials,fullName,username,url"));
+			return JsonConvert.DeserializeObject<IList<TrelloMember>>(SendRequest($"board/{board.Id}/members", "fields=id,avatarHash,initials,fullName,username,url"));
 		}
 
 		private string SendRequest(string path, params string[] parameters)

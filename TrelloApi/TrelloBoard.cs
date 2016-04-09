@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 namespace TrelloApi
 {
 	[DebuggerDisplay("{Name}")]
-	public class TrelloBoard : IComparable<TrelloBoard>, IEquatable<TrelloBoard>
+	public class TrelloBoard : IComparable<TrelloBoard>
 	{
 		[JsonProperty("id")]
 		public string Id { get; internal set; }
@@ -25,13 +25,6 @@ namespace TrelloApi
 		public int CompareTo(TrelloBoard other)
 		{
 			return string.Compare(Name, other.Name, StringComparison.InvariantCultureIgnoreCase);
-		}
-
-		public bool Equals(TrelloBoard other)
-		{
-			if (string.IsNullOrWhiteSpace(Id))
-				return false;
-			return string.Compare(Id, other.Id, StringComparison.InvariantCultureIgnoreCase) == 0;
 		}
 	}
 }
