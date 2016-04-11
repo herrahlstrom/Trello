@@ -22,7 +22,7 @@ namespace TrelloApi
 
 		[JsonProperty("desc")]
 		public string Description { get; set; }
-
+		
 		[JsonProperty("due")]
 		public DateTime? DueDate { get; set; }
 
