@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -64,6 +65,10 @@ namespace TrelloApi
 		{
 			return JsonConvert.DeserializeObject<IList<TrelloBoard>>(SendRequest($"members/{member.Id}/boards/all", "fields=closed,idOrganization,name,starred"));
 		}
+		public TrelloBoard GetBoard(string id)
+		{
+			return JsonConvert.DeserializeObject<TrelloBoard>(SendRequest($"board/{id}", "fields=closed,idOrganization,name,starred"));
+		}
 
 		public IList<TrelloCard> GetCards(TrelloBoard board)
 		{
@@ -87,7 +92,11 @@ namespace TrelloApi
 
 		public IList<BoardList> GetLists(TrelloBoard board)
 		{
-			return JsonConvert.DeserializeObject<IList<BoardList>>(SendRequest($"board/{board.Id}/lists", "fields=closed,idBoard,name,pos"));
+			return JsonConvert.DeserializeObject<IList<BoardList>>(SendRequest($"board/{board.Id}/lists", "fields=closed,id,idBoard,name,pos"));
+		}
+		public BoardList GetList(TrelloCard card)
+		{
+			return JsonConvert.DeserializeObject<BoardList>(SendRequest($"list/{card.ListId}", "fields=closed,id,idBoard,name,pos"));
 		}
 
 		public TrelloMember GetMember(string memberId)
@@ -123,6 +132,7 @@ namespace TrelloApi
 			{
 				try
 				{
+					Debug.WriteLine("Download " + url);
 					string resp = wc.DownloadString(url);
 
 					if (_opts.PersistentCache && _opts.CacheTime.TotalSeconds > 0)
