@@ -2,7 +2,7 @@
 
 namespace TrelloApi
 {
-	public class BoardList
+	public class TrelloBoardList
 	{
 		/// <summary>
 		///     Id of the board that this list is associated to
