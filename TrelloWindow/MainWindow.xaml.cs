@@ -52,7 +52,11 @@ namespace TrelloWindow
 			{
 				try
 				{
+#if DEBUG
+					var opts = new TrelloOptions { Token = token, CacheTime = TimeSpan.FromHours(6), PersistentCache = true };
+#else
 					var opts = new TrelloOptions { Token = token, CacheTime = TimeSpan.FromMinutes(15), PersistentCache = true };
+#endif
 
 					var t = new Trello(opts);
 
