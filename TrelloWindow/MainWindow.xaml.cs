@@ -134,10 +134,62 @@ namespace TrelloWindow
 			await Task.Run(() => Trello.SavePersistentCache());
 		}
 
+		private bool AnyCrossMatch(IEnumerable<IComparable> a, IEnumerable<IComparable> b)
+		{
+			var aList = a as IList<IComparable> ?? a.ToList();
+			var bList = b as IList<IComparable> ?? b.ToList();
+
+			foreach (var aItem in aList)
+			{
+				if (bList.Any(x => x.CompareTo(aItem) == 0))
+					return true;
+			}
+			return false;
+		}
 		private void CompactListButtonBase_OnClick(object sender, RoutedEventArgs e)
 		{
-			var m = Model.Members.Where(x => Model.SelectedMemberIds.Contains(x.Id)).ToList();
-			var b = Model.Boards.Where(x => Model.SelectedBoardIds.Contains(x.Id)).ToList();
+			var members = Model.Members.Where(x => Model.SelectedMemberIds.Contains(x.Id)).ToList();
+			var boards = Model.Boards.Where(x => Model.SelectedBoardIds.Contains(x.Id)).ToList();
+			var printCards = new List<TrelloCard>();
+
+			if (boards.Any() && members.Any())
+			{
+				foreach (var board in boards)
+				{
+					// Only get the cards with selected members assignet to it
+					printCards.AddRange(
+						from c in Model.Trello.GetCards(board)
+						where AnyCrossMatch(c.MemberIds, members.Select(x => x.Id))
+						where !printCards.Any(x=> x.Id == c.Id) 
+						select c
+					);
+				}
+			}
+			else if (boards.Any())
+			{
+				foreach (var board in boards)
+				{
+					printCards.AddRange(
+						from c in Model.Trello.GetCards(board)
+						where !printCards.Any(x => x.Id == c.Id)
+						select c
+					);
+				}
+			}
+			else if (members.Any())
+			{
+				foreach (var member in members)
+				{
+					printCards.AddRange(
+						from c in Model.Trello.GetCards(member)
+						where !printCards.Any(x => x.Id == c.Id)
+						select c
+					);
+				}
+			}
+
+			if (!printCards.Any())
+				return;
 		}
 
 		private void MemberSelector_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -167,6 +219,7 @@ namespace TrelloWindow
 			}
 		}
 
+<<<<<<< HEAD
 		private readonly IDictionary<string, BitmapImage> _avatarCache = new Dictionary<string, BitmapImage>();
 		private FrameworkElement GetCardElement(TrelloCard c)
 		{
@@ -204,6 +257,8 @@ namespace TrelloWindow
 
 			return memberPanel;
 		}
+=======
+>>>>>>> origin/master
 	}
 
 	public class MainModel : INotifyPropertyChanged
