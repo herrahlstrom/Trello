@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -15,6 +16,14 @@ namespace TrelloApi
 	{
 		internal const string ApplicationKey = "b15f1715df3edb45f53d369c36cbbfb2";
 		private const string UrlBase = "https://api.trello.com/1/";
+
+		private const string BoardFields = "closed,idOrganization,name,starred";
+		private const string MemberFields = "id,avatarHash,initials,fullName,username,url";
+		private const string ListFields = "closed,id,idBoard,name,pos";
+		private const string CardFields = "closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url";
+		private const string ChecklistFields = "idBoard,idCard,name,pos";
+		private const string ChecklistItemFields = "name,pos,state";
+		private const string LabelFields = "id,color,idBoard,name";
 		private readonly TrelloOptions _opts;
 		private TrelloMember _me;
 
@@ -23,6 +32,13 @@ namespace TrelloApi
 			if (string.IsNullOrWhiteSpace(opts.Token))
 				throw new NoAccessException("Missing Token!");
 
+			// Always cache for a short time
+			if (opts.CacheTime.TotalSeconds < 10)
+			{
+				opts = (TrelloOptions) opts.Clone();
+				opts.PersistentCache = false;
+				opts.CacheTime = TimeSpan.FromSeconds(10);
+			}
 			_opts = opts;
 		}
 
@@ -60,44 +76,64 @@ namespace TrelloApi
 			}
 		}
 
+		public TrelloBoard GetBoard(string id)
+		{
+			return JsonConvert.DeserializeObject<TrelloBoard>(SendRequest($"board/{id}", "fields=" + BoardFields));
+		}
+
 		public IList<TrelloBoard> GetBoards(TrelloMember member)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloBoard>>(SendRequest($"members/{member.Id}/boards/all", "fields=closed,idOrganization,name,starred"));
+			return JsonConvert.DeserializeObject<IList<TrelloBoard>>(SendRequest($"members/{member.Id}/boards/all", "fields=" + BoardFields));
+		}
+
+		public TrelloCardExtended GetCard(string id)
+		{
+			return JsonConvert.DeserializeObject<TrelloCardExtended>(SendRequest($"card/{id}", "fields=" + CardFields, "list=true", "list_fields=" + ListFields, "board=true", "board_fields=" + BoardFields));
 		}
 
 		public IList<TrelloCard> GetCards(TrelloBoard board)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"board/{board.Id}/cards", "fields=closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
+			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"board/{board.Id}/cards", "fields=" + CardFields));
+		}
+
+		public IList<TrelloCard> GetCards(TrelloBoardList list)
+		{
+			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"list/{list.Id}/cards", "fields=" + CardFields));
 		}
 
 		public IList<TrelloCard> GetCards(TrelloMember member)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"members/{member.Id}/cards", "fields=id,closed,desc,due,email,idBoard,idChecklists,idList,idMembers,labels,name,pos,url"));
+			return JsonConvert.DeserializeObject<IList<TrelloCard>>(SendRequest($"members/{member.Id}/cards", "fields=" + CardFields));
 		}
 
 		public IList<TrelloChecklist> GetChecklists(TrelloCard card)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloChecklist>>(SendRequest($"card/{card.Id}/checklists", "fields=idBoard,idCard,name,pos", "checkItem_fields=name,pos,state"));
+			return JsonConvert.DeserializeObject<IList<TrelloChecklist>>(SendRequest($"card/{card.Id}/checklists", "fields=" + ChecklistFields, "checkItem_fields=" + ChecklistItemFields));
 		}
 
 		public IList<TrelloLabel> GetLabels(TrelloBoard board)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloLabel>>(SendRequest($"board/{board.Id}/labels", "fields=id,color,idBoard,name"));
+			return JsonConvert.DeserializeObject<IList<TrelloLabel>>(SendRequest($"board/{board.Id}/labels", "fields=" + LabelFields));
 		}
 
-		public IList<BoardList> GetLists(TrelloBoard board)
+		public TrelloBoardsListExtended GetList(string id)
 		{
-			return JsonConvert.DeserializeObject<IList<BoardList>>(SendRequest($"board/{board.Id}/lists", "fields=closed,idBoard,name,pos"));
+			return JsonConvert.DeserializeObject<TrelloBoardsListExtended>(SendRequest($"list/{id}", "fields=" + ListFields, "board=true", "board_fields=" + BoardFields));
+		}
+
+		public IList<TrelloBoardList> GetLists(TrelloBoard board)
+		{
+			return JsonConvert.DeserializeObject<IList<TrelloBoardList>>(SendRequest($"board/{board.Id}/lists", "fields=" + ListFields));
 		}
 
 		public TrelloMember GetMember(string memberId)
 		{
-			return JsonConvert.DeserializeObject<TrelloMember>(SendRequest($"members/{memberId}", "fields=id,avatarHash,initials,fullName,username,url"));
+			return JsonConvert.DeserializeObject<TrelloMember>(SendRequest($"members/{memberId}", "fields=" + MemberFields));
 		}
 
 		public IList<TrelloMember> GetMembers(TrelloBoard board)
 		{
-			return JsonConvert.DeserializeObject<IList<TrelloMember>>(SendRequest($"board/{board.Id}/members", "fields=id,avatarHash,initials,fullName,username,url"));
+			return JsonConvert.DeserializeObject<IList<TrelloMember>>(SendRequest($"board/{board.Id}/members", "fields=" + MemberFields));
 		}
 
 		private string SendRequest(string path, params string[] parameters)
@@ -119,10 +155,11 @@ namespace TrelloApi
 					return cacheValue;
 			}
 
-			using (var wc = new WebClient { Encoding = Encoding.UTF8 })
+			using (var wc = new WebClient {Encoding = Encoding.UTF8})
 			{
 				try
 				{
+					Debug.WriteLine("Download " + url);
 					string resp = wc.DownloadString(url);
 
 					if (_opts.PersistentCache && _opts.CacheTime.TotalSeconds > 0)

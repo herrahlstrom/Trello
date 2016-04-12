@@ -18,20 +18,19 @@ namespace TrelloWindow
 	public partial class MainWindow : Window
 	{
 		private MainModel _model;
+		private Trello _trello { get; }
 
 		public MainWindow()
 		{
 			InitializeComponent();
 
-			var t = GetTrello();
-
-			if (t == null)
+			if ((_trello = GetTrello()) == null)
 			{
 				Close();
 				return;
 			}
 
-			Model = new MainModel(t);
+			Model = new MainModel();
 		}
 
 		public MainModel Model
@@ -52,7 +51,11 @@ namespace TrelloWindow
 			{
 				try
 				{
-					var opts = new TrelloOptions { Token = token, CacheTime = TimeSpan.FromMinutes(30), PersistentCache = true };
+#if DEBUG
+					var opts = new TrelloOptions { Token = token, CacheTime = TimeSpan.FromHours(6), PersistentCache = true };
+#else
+					var opts = new TrelloOptions { Token = token, CacheTime = TimeSpan.FromMinutes(15), PersistentCache = true };
+#endif
 
 					var t = new Trello(opts);
 
@@ -75,17 +78,17 @@ namespace TrelloWindow
 
 		private async void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
 		{
-			var me = await Task.Run(() => Model.Trello.Me);
+			var me = await Task.Run(() => _trello.Me);
 
 			Model.Members.Add(me);
 
-			var boards = await Task.Run(() => Model.Trello.GetBoards(me));
+			var boards = await Task.Run(() => _trello.GetBoards(me));
 
 			foreach (var board in boards.Where(x => !x.IsClosed).OrderByDescending(x => x.IsStarred).ThenBy(x => x.Name))
 			{
 				Model.Boards.Add(board);
 
-				var boardMembers = await Task.Run(() => Model.Trello.GetMembers(board));
+				var boardMembers = await Task.Run(() => _trello.GetMembers(board));
 				foreach (var boardMember in boardMembers.OrderBy(x => x.Name))
 				{
 					if (Model.Members.All(x => x.Id != boardMember.Id))
@@ -95,7 +98,34 @@ namespace TrelloWindow
 				}
 			}
 
-			await Task.Run(() => Model.Trello.SavePersistentCache());
+			// TEST
+			var myCards = _trello.GetCards(me);
+			var compactModel = (from c in _trello.GetCards(me)
+								let b = _trello.GetBoard(c.BoardId)
+								let bl = _trello.GetList(c.ListId)
+								let bm = _trello.GetMembers(b)
+								orderby b.Name, bl.Pos, c.Pos
+								select new PrintCompactModels.Card()
+								{
+									Name = c.Name,
+									Description = c.Description,
+									DueDate = c.DueDate?.ToString("yyyy-MM-dd") ?? "",
+									Board = new PrintCompactModels.Board() { Name = b.Name },
+									List = new PrintCompactModels.BoardList() { Name = bl.Name },
+									Members = (from x in bm
+											   where c.MemberIds.Contains(x.Id)
+											   select new PrintCompactModels.Member()
+											   {
+												   Name = x.Name,
+												   AvatarHash = x.AvatarHash,
+												   Username = x.Username,
+												   Initials = x.Initials
+											   }).ToList(),
+									Labels = c.Labels.Select(x => new PrintCompactModels.Label() { Name = x.Name }).ToList()
+								}).ToList();
+
+
+			await Task.Run(() => _trello.SavePersistentCache());
 		}
 
 		private bool AnyCrossMatch(IEnumerable<IComparable> a, IEnumerable<IComparable> b)
@@ -187,17 +217,10 @@ namespace TrelloWindow
 
 	public class MainModel : INotifyPropertyChanged
 	{
-		public MainModel(Trello trello)
-		{
-			Trello = trello;
-		}
-
 		public HashSet<string> SelectedMemberIds { get; } = new HashSet<string>();
 		public HashSet<string> SelectedBoardIds { get; } = new HashSet<string>();
 		public ObservableCollection<TrelloMember> Members { get; } = new ObservableCollection<TrelloMember>();
 		public ObservableCollection<TrelloBoard> Boards { get; } = new ObservableCollection<TrelloBoard>();
-
-		public Trello Trello { get; }
 
 		#region INotifyPropertyChanged
 

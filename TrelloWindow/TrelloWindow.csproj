@@ -68,6 +68,7 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="PrintCompactModels\Board.cs" />
     <Compile Include="GetTokenWindow.xaml.cs">
       <DependentUpon>GetTokenWindow.xaml</DependentUpon>
     </Compile>
@@ -77,6 +78,10 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PrintCompactModels\BoardList.cs" />
+    <Compile Include="PrintCompactModels\Card.cs" />
+    <Compile Include="PrintCompactModels\Label.cs" />
+    <Compile Include="PrintCompactModels\Member.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -108,6 +113,9 @@
       <Project>{05be4db1-518c-4e58-8979-e942230311a2}</Project>
       <Name>TrelloApi</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Properties\DataSources\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
