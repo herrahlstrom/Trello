@@ -7,6 +7,8 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Media.Imaging;
 using TrelloApi;
 using TrelloApi.Exceptions;
 
@@ -18,13 +20,13 @@ namespace TrelloWindow
 	public partial class MainWindow : Window
 	{
 		private MainModel _model;
-		private Trello _trello { get; }
+		private Trello Trello { get; }
 
 		public MainWindow()
 		{
 			InitializeComponent();
 
-			if ((_trello = GetTrello()) == null)
+			if ((Trello = GetTrello()) == null)
 			{
 				Close();
 				return;
@@ -78,17 +80,17 @@ namespace TrelloWindow
 
 		private async void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
 		{
-			var me = await Task.Run(() => _trello.Me);
+			var me = await Task.Run(() => Trello.Me);
 
 			Model.Members.Add(me);
 
-			var boards = await Task.Run(() => _trello.GetBoards(me));
+			var boards = await Task.Run(() => Trello.GetBoards(me));
 
 			foreach (var board in boards.Where(x => !x.IsClosed).OrderByDescending(x => x.IsStarred).ThenBy(x => x.Name))
 			{
 				Model.Boards.Add(board);
 
-				var boardMembers = await Task.Run(() => _trello.GetMembers(board));
+				var boardMembers = await Task.Run(() => Trello.GetMembers(board));
 				foreach (var boardMember in boardMembers.OrderBy(x => x.Name))
 				{
 					if (Model.Members.All(x => x.Id != boardMember.Id))
@@ -99,11 +101,11 @@ namespace TrelloWindow
 			}
 
 			// TEST
-			var myCards = _trello.GetCards(me);
-			var compactModel = (from c in _trello.GetCards(me)
-								let b = _trello.GetBoard(c.BoardId)
-								let bl = _trello.GetList(c.ListId)
-								let bm = _trello.GetMembers(b)
+			var myCards = Trello.GetCards(me);
+			var compactModel = (from c in Trello.GetCards(me)
+								let b = Trello.GetBoard(c.BoardId)
+								let bl = Trello.GetList(c.ListId)
+								let bm = Trello.GetMembers(b)
 								orderby b.Name, bl.Pos, c.Pos
 								select new PrintCompactModels.Card()
 								{
@@ -124,8 +126,12 @@ namespace TrelloWindow
 									Labels = c.Labels.Select(x => new PrintCompactModels.Label() { Name = x.Name }).ToList()
 								}).ToList();
 
+			foreach (var c in Trello.GetCards(me).Take(3))
+			{
+				var p = GetCardElement(c);
+			}
 
-			await Task.Run(() => _trello.SavePersistentCache());
+			await Task.Run(() => Trello.SavePersistentCache());
 		}
 
 		private void CompactListButtonBase_OnClick(object sender, RoutedEventArgs e)
@@ -159,6 +165,44 @@ namespace TrelloWindow
 				foreach (TrelloBoard item in e.RemovedItems)
 					Model.SelectedBoardIds.Remove(item.Id);
 			}
+		}
+
+		private readonly IDictionary<string, BitmapImage> _avatarCache = new Dictionary<string, BitmapImage>();
+		private FrameworkElement GetCardElement(TrelloCard c)
+		{
+			var board = Trello.GetBoard(c.BoardId);
+			var members = (from bm in Trello.GetMembers(board)
+						   where c.MemberIds.Contains(bm.Id)
+						   orderby bm.Name
+						   select bm).ToList();
+
+			var memberPanel = new StackPanel() { MinWidth = 90, Orientation = Orientation.Horizontal };
+			foreach (var member in members)
+			{
+				if (string.IsNullOrWhiteSpace(member.Avatar30Px))
+				{
+					var b = new Border() { };
+					b.Child = new TextBlock() { Text = member.Initials, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center };
+					memberPanel.Children.Add(b);
+				}
+				else
+				{
+					BitmapImage bitmap;
+					if (!_avatarCache.TryGetValue(member.Avatar30Px, out bitmap))
+					{
+						bitmap = new BitmapImage();
+						bitmap.BeginInit();
+						bitmap.UriSource = new Uri(member.Avatar30Px, UriKind.Absolute);
+						bitmap.EndInit();
+						_avatarCache.Add(member.Avatar30Px, bitmap);
+					}
+					memberPanel.Children.Add(new Image() { Source = bitmap });
+				}
+			}
+
+			// todo
+
+			return memberPanel;
 		}
 	}
 
