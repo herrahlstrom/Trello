@@ -49,6 +49,30 @@ namespace TrelloApi
 				}
 			}
 		}
+		public Tuple<byte, byte, byte> RgbColor
+		{
+			get
+			{
+				//ToDo: lime
+				switch (Color)
+				{
+					case "red":
+						return Tuple.Create((byte)0x61, (byte)0xbd, (byte)0x4f);
+					case "green":
+						return Tuple.Create((byte)0x61, (byte)0xbd, (byte)0x4f);
+					case "blue":
+						return Tuple.Create((byte)0x00, (byte)0x79, (byte)0xbf);
+					case "purple":
+						return Tuple.Create((byte)0xc3, (byte)0x77, (byte)0xe0);
+					case "orange":
+						return Tuple.Create((byte)0xff, (byte)0xab, (byte)0x4a);
+					case "yellow":
+						return Tuple.Create((byte)0xf2, (byte)0xd6, (byte)0x00);
+					default:
+						return null;
+				}
+			}
+		}
 
 		/// <summary>
 		///     Label id
