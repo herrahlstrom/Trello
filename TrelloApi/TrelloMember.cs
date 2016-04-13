@@ -15,6 +15,7 @@ namespace TrelloApi
 		public string AvatarHash { get; set; }
 
 		public string Avatar30Px => string.IsNullOrWhiteSpace(AvatarHash) ? "" : $"https://trello-avatars.s3.amazonaws.com/{AvatarHash}/30.png";
+		public string Avatar170Px => string.IsNullOrWhiteSpace(AvatarHash) ? "" : $"https://trello-avatars.s3.amazonaws.com/{AvatarHash}/170.png";
 
 		/// <summary>
 		///     User if of the member
