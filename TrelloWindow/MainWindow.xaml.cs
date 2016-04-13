@@ -2,13 +2,19 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
+using System.IO.Packaging;
 using System.Linq;
+using System.Runtime.Caching;
 using System.Runtime.InteropServices.ComTypes;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Markup;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Xps.Packaging;
 using TrelloApi;
 using TrelloApi.Exceptions;
 
@@ -126,11 +132,6 @@ namespace TrelloWindow
 									Labels = c.Labels.Select(x => new PrintCompactModels.Label() { Name = x.Name }).ToList()
 								}).ToList();
 
-			foreach (var c in Trello.GetCards(me).Take(3))
-			{
-				var p = GetCardElement(c);
-			}
-
 			await Task.Run(() => Trello.SavePersistentCache());
 		}
 
@@ -154,24 +155,27 @@ namespace TrelloWindow
 
 			if (boards.Any() && members.Any())
 			{
-				foreach (var board in boards)
+				foreach (var board in boards.OrderBy(x => x.Name))
 				{
 					// Only get the cards with selected members assignet to it
 					printCards.AddRange(
-						from c in Model.Trello.GetCards(board)
+						from c in Trello.GetCards(board)
 						where AnyCrossMatch(c.MemberIds, members.Select(x => x.Id))
-						where !printCards.Any(x=> x.Id == c.Id) 
+						where !printCards.Any(x => x.Id == c.Id)
+						orderby c.Pos
 						select c
 					);
 				}
 			}
 			else if (boards.Any())
 			{
-				foreach (var board in boards)
+				foreach (var board in boards.OrderBy(x => x.Name))
 				{
 					printCards.AddRange(
-						from c in Model.Trello.GetCards(board)
+						from c in Trello.GetCards(board)
+						let bl = Trello.GetList(c.ListId)
 						where !printCards.Any(x => x.Id == c.Id)
+						orderby bl.Pos, c.Pos
 						select c
 					);
 				}
@@ -181,8 +185,11 @@ namespace TrelloWindow
 				foreach (var member in members)
 				{
 					printCards.AddRange(
-						from c in Model.Trello.GetCards(member)
+						from c in Trello.GetCards(member)
+						let b = Trello.GetBoard(c.BoardId)
+						let bl = Trello.GetList(c.ListId)
 						where !printCards.Any(x => x.Id == c.Id)
+						orderby b.Name, bl.Pos, c.Pos
 						select c
 					);
 				}
@@ -190,6 +197,115 @@ namespace TrelloWindow
 
 			if (!printCards.Any())
 				return;
+
+			var result = Print(printCards);
+			System.Diagnostics.Process.Start(result.FullName);
+
+			//todo:genomför utskrift
+		}
+
+		private FileInfo Print(IEnumerable<TrelloCard> cards)
+		{
+			// Denna siffra matchar innehållet som wpf-kontrollerna är breddanpassade efter, mindre siffra=mer zoom
+			const double contentWidth = 700;
+			const double contentMaxHeight = 880;
+
+			var doc = new FixedDocument();
+			var pagePanel = new StackPanel() { Width = contentWidth };
+			int pageHeight = 0;
+
+			TrelloBoard currentBoard = null;
+			TrelloBoardList currentList = null;
+			foreach (var card in cards)
+			{
+				if (pageHeight >= contentMaxHeight)
+				{
+					doc.Pages.Add(CreatePageContent(pagePanel));
+					pagePanel = new StackPanel() { Width = contentWidth };
+					pageHeight = 0;
+				}
+
+				if (currentBoard == null || currentBoard.Id != card.BoardId)
+				{
+					if (pageHeight >= contentMaxHeight - 100)
+					{
+						// Tavlor påbörjas inte för nära slutet på sidan
+						doc.Pages.Add(CreatePageContent(pagePanel));
+						pagePanel = new StackPanel() { Width = contentWidth };
+						pageHeight = 0;
+					}
+
+					currentBoard = Trello.GetBoard(card.BoardId);
+					currentList = null;
+					pagePanel.Children.Add(new TextBlock { Text = currentBoard.Name, FontSize = 20, Margin = new Thickness(0, 10, 0, 5) });
+					pageHeight += 30;//Schablon
+				}
+				if (currentList == null || currentList.Id != card.ListId)
+				{
+					if (pageHeight >= contentMaxHeight - 50)
+					{
+						// Listor påbörjas inte för nära slutet på sidan
+						doc.Pages.Add(CreatePageContent(pagePanel));
+						pagePanel = new StackPanel() { Width = contentWidth };
+						pageHeight = 0;
+					}
+					currentList = Trello.GetList(card.ListId);
+					pagePanel.Children.Add(new TextBlock { Text = currentList.Name, FontSize = 14, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 10, 0, 5) });
+					pageHeight += 30;//Schablon
+				}
+
+				pagePanel.Children.Add(GetCardElement(currentBoard, card));
+				pageHeight += 30;//Schablon
+
+			}
+			if (pagePanel != null && pagePanel.Children.Count > 0)
+			{
+				doc.Pages.Add(CreatePageContent(pagePanel));
+			}
+
+
+			byte[] xpsData;
+
+			// Skapa ett xps-dokument, och konvertera till en byte-array
+			using (var ms = new MemoryStream())
+			{
+				var package = Package.Open(ms, FileMode.CreateNew, FileAccess.ReadWrite);
+				using (var xpsd = new XpsDocument(package, CompressionOption.NotCompressed))
+				{
+					var xw = XpsDocument.CreateXpsDocumentWriter(xpsd);
+					xw.Write(doc);
+				}
+				xpsData = ms.ToArray();
+			}
+
+			string tmpFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".xps");
+			File.WriteAllBytes(tmpFile, xpsData);
+
+			return new FileInfo(tmpFile);
+
+		}
+
+		private static PageContent CreatePageContent(StackPanel pagePanel)
+		{
+			// Denna siffra är empiriskt framtagen efter A4
+			const double pageWidth = 815;
+
+			var pageMargin = new Thickness(70, 50, 50, 50);
+			var vb = new Viewbox
+			{
+				Margin = pageMargin,
+				Width = pageWidth - (pageMargin.Left + pageMargin.Right),
+				Child = pagePanel
+			};
+			var content = new PageContent();
+			var page = new FixedPage();
+
+			// Bygg upp dokumentet
+			page.Children.Add(vb);
+			((IAddChild)content).AddChild(page);
+
+			return content;
+
 		}
 
 		private void MemberSelector_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -219,46 +335,150 @@ namespace TrelloWindow
 			}
 		}
 
-<<<<<<< HEAD
-		private readonly IDictionary<string, BitmapImage> _avatarCache = new Dictionary<string, BitmapImage>();
-		private FrameworkElement GetCardElement(TrelloCard c)
+		private FrameworkElement GetCardElement(TrelloBoard b, TrelloCard c)
 		{
-			var board = Trello.GetBoard(c.BoardId);
-			var members = (from bm in Trello.GetMembers(board)
+			var members = (from bm in Trello.GetMembers(b)
 						   where c.MemberIds.Contains(bm.Id)
 						   orderby bm.Name
 						   select bm).ToList();
+			var panel = new DockPanel();
 
-			var memberPanel = new StackPanel() { MinWidth = 90, Orientation = Orientation.Horizontal };
+			var memberPanel = GetCardMembersPanel(members);
+			panel.Children.Add(memberPanel);
+			DockPanel.SetDock(memberPanel, Dock.Left);
+
+			if (c.DueDate.HasValue)
+			{
+				var dueDatePanel = new StackPanel() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+
+				if (c.DueDate.Value < DateTime.Now)
+				{
+					dueDatePanel.Children.Add(new TextBlock() { Text = "Förfallit", FontSize = 10 });
+					dueDatePanel.Children.Add(new TextBlock() { Text = c.DueDate.Value.ToString("dd MMM yyyy"), FontSize = 10, Foreground = new SolidColorBrush(Colors.Red), FontWeight = FontWeights.Bold });
+				}
+				else
+				{
+					dueDatePanel.Children.Add(new TextBlock() { Text = "Förfaller", FontSize = 10 });
+					dueDatePanel.Children.Add(new TextBlock() { Text = c.DueDate.Value.ToString("dd MMM yyyy"), FontSize = 10 });
+				}
+
+				panel.Children.Add(dueDatePanel);
+				DockPanel.SetDock(dueDatePanel, Dock.Right);
+			}
+			if (c.Labels.Any())
+			{
+				var labelPanel = new StackPanel() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+				foreach (var label in c.Labels)
+				{
+					var rgbColor = label.RgbColor;
+					SolidColorBrush color = new SolidColorBrush(
+						(rgbColor == null)
+						? Colors.White
+						: Color.FromArgb(128, rgbColor.Item1, rgbColor.Item2, rgbColor.Item3));
+
+					labelPanel.Children.Add(new TextBlock()
+					{
+						Text = label.Name,
+						Background = color,
+						FontSize = 10,
+						Margin = new Thickness(10, 0, 0, 0),
+						Padding = new Thickness(5, 0, 5, 0)
+					});
+				}
+				panel.Children.Add(labelPanel);
+				DockPanel.SetDock(labelPanel, Dock.Right);
+			}
+
+			panel.Children.Add(new TextBlock()
+			{
+				VerticalAlignment = VerticalAlignment.Center,
+				Text = c.Name,
+				TextWrapping = TextWrapping.Wrap,
+				FontSize = 14
+			});
+
+			var wrapper = new Border()
+			{
+				BorderBrush = new SolidColorBrush(Color.FromRgb(0xee, 0xee, 0xee)),
+				BorderThickness = new Thickness(0, 0, 0, 1),
+				Child = panel,
+				Padding = new Thickness(0, 0, 0, 2),
+				Margin = new Thickness(0, 0, 0, 3)
+			};
+			return wrapper;
+		}
+
+		private StackPanel GetCardMembersPanel(List<TrelloMember> members)
+		{
+			var memberPanel = new StackPanel() { Orientation = Orientation.Horizontal, MinWidth = 90 };
 			foreach (var member in members)
 			{
-				if (string.IsNullOrWhiteSpace(member.Avatar30Px))
+				BitmapImage avatarBitmap = GetMemberAvatarBitmap(member);
+
+				if (avatarBitmap == null)
 				{
-					var b = new Border() { };
-					b.Child = new TextBlock() { Text = member.Initials, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center };
+					var b = new Border()
+					{
+						BorderBrush = new SolidColorBrush(Color.FromRgb(0xaa, 0xaa, 0xaa)),
+						Background = new SolidColorBrush(Color.FromRgb(0xee, 0xee, 0xee)),
+						Width = 24,
+						Height = 24,
+						CornerRadius = new CornerRadius(16),
+						Margin = new Thickness(0, 0, 4, 0)
+					};
+					b.Child = new TextBlock()
+					{
+						Text = member.Initials,
+						FontSize = 12,
+						VerticalAlignment = VerticalAlignment.Center,
+						TextAlignment = TextAlignment.Center
+					};
 					memberPanel.Children.Add(b);
 				}
 				else
 				{
-					BitmapImage bitmap;
-					if (!_avatarCache.TryGetValue(member.Avatar30Px, out bitmap))
+					var img = new Image()
 					{
-						bitmap = new BitmapImage();
-						bitmap.BeginInit();
-						bitmap.UriSource = new Uri(member.Avatar30Px, UriKind.Absolute);
-						bitmap.EndInit();
-						_avatarCache.Add(member.Avatar30Px, bitmap);
-					}
-					memberPanel.Children.Add(new Image() { Source = bitmap });
+						Width = 24,
+						Height = 24,
+						Margin = new Thickness(0, 0, 4, 0),
+						Source = avatarBitmap
+					};
+					memberPanel.Children.Add(img);
+					RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
 				}
 			}
 
-			// todo
-
 			return memberPanel;
 		}
-=======
->>>>>>> origin/master
+
+		private static BitmapImage GetMemberAvatarBitmap(TrelloMember member)
+		{
+			if (string.IsNullOrWhiteSpace(member?.Avatar170Px))
+				return null;
+
+			byte[] imgData = MemoryCache.Default.Get("MEMBER_IMG_" + member.Id) as byte[];
+			if (imgData == null)
+			{
+				using (var wc = new System.Net.WebClient())
+					imgData = wc.DownloadData(member.Avatar170Px);
+				MemoryCache.Default.Set("MEMBER_IMG_" + member.Id, imgData, DateTimeOffset.Now.AddHours(1));
+			}
+
+			var bitmap = new BitmapImage();
+			using (var mem = new MemoryStream(imgData))
+			{
+				mem.Position = 0;
+				bitmap.BeginInit();
+				bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+				bitmap.CacheOption = BitmapCacheOption.OnLoad;
+				bitmap.UriSource = null;
+				bitmap.StreamSource = mem;
+				bitmap.EndInit();
+			}
+			bitmap.Freeze();
+			return bitmap;
+		}
 	}
 
 	public class MainModel : INotifyPropertyChanged
