@@ -59,13 +59,7 @@ namespace TrelloWindow
 			{
 				try
 				{
-#if DEBUG
-					var opts = new TrelloOptions { Token = token, CacheTime = TimeSpan.FromHours(6), PersistentCache = true };
-#else
-					var opts = new TrelloOptions { Token = token, CacheTime = TimeSpan.FromMinutes(15), PersistentCache = true };
-#endif
-
-					var t = new Trello(opts);
+					var t = new Trello(new TrelloOptions { Token = token });
 
 					// Simply access something that needed access, to eventually trigger NoAccessException
 					t.GetMember("me");
@@ -131,8 +125,6 @@ namespace TrelloWindow
 											   }).ToList(),
 									Labels = c.Labels.Select(x => new PrintCompactModels.Label() { Name = x.Name }).ToList()
 								}).ToList();
-
-			await Task.Run(() => Trello.SavePersistentCache());
 		}
 
 		private bool AnyCrossMatch(IEnumerable<IComparable> a, IEnumerable<IComparable> b)
@@ -140,12 +132,7 @@ namespace TrelloWindow
 			var aList = a as IList<IComparable> ?? a.ToList();
 			var bList = b as IList<IComparable> ?? b.ToList();
 
-			foreach (var aItem in aList)
-			{
-				if (bList.Any(x => x.CompareTo(aItem) == 0))
-					return true;
-			}
-			return false;
+			return aList.Any(aItem => bList.Any(x => x.CompareTo(aItem) == 0));
 		}
 		private void CompactListButtonBase_OnClick(object sender, RoutedEventArgs e)
 		{

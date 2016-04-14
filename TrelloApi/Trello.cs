@@ -26,11 +26,11 @@ namespace TrelloApi
 		private readonly TrelloOptions _opts;
 		private TrelloMember _me;
 
-		private IRequestCache _memCache = new MemoryRequestCache(TimeSpan.FromMinutes(1));
+		private readonly IRequestCache _memCache = new MemoryRequestCache(TimeSpan.FromMinutes(1));
 #if DEBUG
-		private IRequestCache _dskCache = new DiskRequestCache(TimeSpan.FromMinutes(60));
+		private readonly IRequestCache _dskCache = new DiskRequestCache(TimeSpan.FromMinutes(120));
 #else
-		private IRequestCache _dskCache = null;
+		private readonly IRequestCache _dskCache = null;
 #endif
 
 		public Trello(TrelloOptions opts)
