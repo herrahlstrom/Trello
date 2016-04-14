@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using Newtonsoft.Json;
-using System.Collections.Generic;
 
 namespace TrelloApi
 {

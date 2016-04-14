@@ -46,8 +46,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Cache\DiskRequestCache.cs" />
+    <Compile Include="Cache\IRequestCache.cs" />
+    <Compile Include="Cache\MemoryRequestCache.cs" />
     <Compile Include="TrelloBoardList.cs" />
-    <Compile Include="DiskStringCache.cs" />
     <Compile Include="Exceptions\NoAccessException.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Trello.cs" />

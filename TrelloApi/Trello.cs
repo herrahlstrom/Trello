@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Net;
-using System.Runtime.Caching;
 using System.Text;
 using Microsoft.Win32;
 using Newtonsoft.Json;
+using TrelloApi.Cache;
 using TrelloApi.Exceptions;
 
 namespace TrelloApi
@@ -27,18 +26,18 @@ namespace TrelloApi
 		private readonly TrelloOptions _opts;
 		private TrelloMember _me;
 
+		private IRequestCache _memCache = new MemoryRequestCache(TimeSpan.FromMinutes(1));
+#if DEBUG
+		private IRequestCache _dskCache = new DiskRequestCache(TimeSpan.FromMinutes(60));
+#else
+		private IRequestCache _dskCache = null;
+#endif
+
 		public Trello(TrelloOptions opts)
 		{
-			if (string.IsNullOrWhiteSpace(opts.Token))
+			if (string.IsNullOrWhiteSpace(opts?.Token))
 				throw new NoAccessException("Missing Token!");
 
-			// Always cache for a short time
-			if (opts.CacheTime.TotalSeconds < 10)
-			{
-				opts = (TrelloOptions) opts.Clone();
-				opts.PersistentCache = false;
-				opts.CacheTime = TimeSpan.FromSeconds(10);
-			}
 			_opts = opts;
 		}
 
@@ -143,60 +142,32 @@ namespace TrelloApi
 				url += "&" + string.Join("&", parameters);
 
 			// Read from cache
-			string cacheKey = CalculateHash(url).ToString();
-			if (_opts.CacheTime.TotalSeconds > 0)
-			{
-				string cacheValue;
-				if (_opts.PersistentCache)
-					cacheValue = PersistentCache.GetValue(cacheKey);
-				else
-					cacheValue = MemoryCache.Default.Get(cacheKey) as string;
-				if (!string.IsNullOrWhiteSpace(cacheValue))
-					return cacheValue;
-			}
+			string resp =
+				_memCache?.GetValue(url)
+				?? _dskCache?.GetValue(url);
 
-			using (var wc = new WebClient {Encoding = Encoding.UTF8})
+			if (resp == null)
 			{
-				try
+				using (var wc = new WebClient { Encoding = Encoding.UTF8 })
 				{
-					Debug.WriteLine("Download " + url);
-					string resp = wc.DownloadString(url);
-
-					if (_opts.PersistentCache && _opts.CacheTime.TotalSeconds > 0)
-						PersistentCache.SetValue(cacheKey, resp, DateTime.Now.Add(_opts.CacheTime), false);
-					else if (_opts.CacheTime.TotalSeconds > 0)
-						MemoryCache.Default.Set(cacheKey, resp, DateTimeOffset.Now.Add(_opts.CacheTime));
-
-					return resp;
+					try
+					{
+						Debug.WriteLine("Download " + url);
+						resp = wc.DownloadString(url);
+					}
+					catch (WebException ex) when (ex.Message.Contains("(401)"))
+					{
+						throw new NoAccessException("Access denied!");
+					}
 				}
-				catch (WebException ex) when (ex.Message.Contains("(401)"))
-				{
-					throw new NoAccessException("Access denied!");
-				}
+
+				// Save to cache
+				_memCache?.SetValue(url, resp);
+				_dskCache?.SetValue(url, resp);
 			}
+
+			return resp;
 		}
-
-		#region Persistens cache
-
-		private DiskStringCache _persistentCache;
-		internal DiskStringCache PersistentCache => _persistentCache ?? (_persistentCache = new DiskStringCache(Path.Combine(Path.GetTempPath(), "TrelloCache.cache")));
-
-		public void SavePersistentCache()
-		{
-			_persistentCache?.Save();
-		}
-
-		private static ulong CalculateHash(string str)
-		{
-			ulong hashedValue = 3074457345618258791ul;
-			foreach (char t in str)
-			{
-				hashedValue += t;
-				hashedValue *= 3074457345618258799ul;
-			}
-			return hashedValue;
-		}
-
-		#endregion
+		
 	}
 }
