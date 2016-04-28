@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TrelloWindow"
         mc:Ignorable="d" ShowInTaskbar="false"
-        Height="600" Width="700" ResizeMode="NoResize" WindowStyle="None">
+        Height="650" Width="700" ResizeMode="NoResize" WindowStyle="None">
 	<Border Padding="5" BorderBrush="Black" BorderThickness="1">
 		<Grid>
 			<Grid.ColumnDefinitions>

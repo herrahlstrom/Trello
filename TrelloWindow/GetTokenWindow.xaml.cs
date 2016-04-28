@@ -24,6 +24,8 @@ namespace TrelloWindow
 			InitializeComponent();
 
 			Browser.Source = TrelloApi.Trello.GetTokenUri("Trello Window");
+
+			DataContext = this;
 		}
 
 		public string Token { get; set; }
