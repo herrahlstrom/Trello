@@ -147,9 +147,10 @@ namespace TrelloWindow
 					// Only get the cards with selected members assignet to it
 					printCards.AddRange(
 						from c in Trello.GetCards(board)
+						let bl = Trello.GetList(c.ListId)
 						where AnyCrossMatch(c.MemberIds, members.Select(x => x.Id))
 						where !printCards.Any(x => x.Id == c.Id)
-						orderby c.Pos
+						orderby bl.Pos, c.Pos
 						select c
 					);
 				}
