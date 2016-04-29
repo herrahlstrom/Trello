@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Windows.Media;
 using Newtonsoft.Json;
 
 namespace TrelloApi
@@ -7,7 +8,7 @@ namespace TrelloApi
 	/// <summary>
 	///     Label that can be associated to a card
 	/// </summary>
-	[DebuggerDisplay("{Name}, {Color}")]
+	[DebuggerDisplay("{Name}, {ColorName}")]
 	public class TrelloLabel : IComparable<TrelloLabel>
 	{
 		/// <summary>
@@ -20,59 +21,7 @@ namespace TrelloApi
 		///     Colorname in text
 		/// </summary>
 		[JsonProperty("color")]
-		public string Color { get; set; }
-
-		/// <summary>
-		///     Color that can be used in html-pages
-		/// </summary>
-		public string HexColor
-		{
-			get
-			{
-				//ToDo: lime
-				switch (Color)
-				{
-					case "red":
-						return "#61bd4f";
-					case "green":
-						return "#61bd4f";
-					case "blue":
-						return "#0079bf";
-					case "purple":
-						return "#c377e0";
-					case "orange":
-						return "#ffab4a";
-					case "yellow":
-						return "#f2d600";
-					default:
-						return "";
-				}
-			}
-		}
-		public Tuple<byte, byte, byte> RgbColor
-		{
-			get
-			{
-				//ToDo: lime
-				switch (Color)
-				{
-					case "red":
-						return Tuple.Create((byte)0x61, (byte)0xbd, (byte)0x4f);
-					case "green":
-						return Tuple.Create((byte)0x61, (byte)0xbd, (byte)0x4f);
-					case "blue":
-						return Tuple.Create((byte)0x00, (byte)0x79, (byte)0xbf);
-					case "purple":
-						return Tuple.Create((byte)0xc3, (byte)0x77, (byte)0xe0);
-					case "orange":
-						return Tuple.Create((byte)0xff, (byte)0xab, (byte)0x4a);
-					case "yellow":
-						return Tuple.Create((byte)0xf2, (byte)0xd6, (byte)0x00);
-					default:
-						return null;
-				}
-			}
-		}
+		public string ColorName { get; set; }
 
 		/// <summary>
 		///     Label id
@@ -89,6 +38,48 @@ namespace TrelloApi
 		public int CompareTo(TrelloLabel other)
 		{
 			return string.Compare(Name, other.Name, StringComparison.InvariantCultureIgnoreCase);
+		}
+
+		/// <summary>
+		///     Color of the label, represented in #RRGGBB
+		/// </summary>
+		public string GetHexColor()
+		{
+			var rgb = GetRgbColor();
+			return $"#{rgb.R}{rgb.G}{rgb.B}";
+		}
+
+		/// <summary>
+		///     Color of the label, represented by rgb tuple
+		/// </summary>
+		/// <returns></returns>
+		public Color GetRgbColor()
+		{
+			switch (ColorName)
+			{
+				case "red":
+					return Color.FromRgb(0xeb, 0x5a, 0x46);
+				case "green":
+					return Color.FromRgb(0x61, 0xbd, 0x4f);
+				case "blue":
+					return Color.FromRgb(0x00, 0x79, 0xbf);
+				case "purple":
+					return Color.FromRgb(0xc3, 0x77, 0xe0);
+				case "orange":
+					return Color.FromRgb(0xff, 0xab, 0x4a);
+				case "yellow":
+					return Color.FromRgb(0xf2, 0xd6, 0x00);
+				case "black":
+					return Color.FromRgb(0x4d, 0x4d, 0x4d);
+				case "pink":
+					return Color.FromRgb(0xff, 0x80, 0xce);
+				case "lime":
+					return Color.FromRgb(0x51, 0xe8, 0x98);
+				case "sky":
+					return Color.FromRgb(0x00, 0xc2, 0xe0);
+				default:
+					return Color.FromRgb(0xff, 0xff, 0xff);
+			}
 		}
 	}
 }
