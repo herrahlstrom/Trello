@@ -6,7 +6,6 @@ using System.IO;
 using System.IO.Packaging;
 using System.Linq;
 using System.Runtime.Caching;
-using System.Runtime.InteropServices.ComTypes;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -89,7 +88,7 @@ namespace TrelloWindow
 			foreach (var board in boards.Where(x => !x.IsClosed).OrderByDescending(x => x.IsStarred).ThenBy(x => x.Name))
 			{
 				Model.Boards.Add(board);
-
+				
 				var boardMembers = await Task.Run(() => Trello.GetMembers(board));
 				foreach (var boardMember in boardMembers.OrderBy(x => x.Name))
 				{
@@ -99,32 +98,6 @@ namespace TrelloWindow
 					}
 				}
 			}
-
-			// TEST
-			var myCards = Trello.GetCards(me);
-			var compactModel = (from c in Trello.GetCards(me)
-								let b = Trello.GetBoard(c.BoardId)
-								let bl = Trello.GetList(c.ListId)
-								let bm = Trello.GetMembers(b)
-								orderby b.Name, bl.Pos, c.Pos
-								select new PrintCompactModels.Card()
-								{
-									Name = c.Name,
-									Description = c.Description,
-									DueDate = c.DueDate?.ToString("yyyy-MM-dd") ?? "",
-									Board = new PrintCompactModels.Board() { Name = b.Name },
-									List = new PrintCompactModels.BoardList() { Name = bl.Name },
-									Members = (from x in bm
-											   where c.MemberIds.Contains(x.Id)
-											   select new PrintCompactModels.Member()
-											   {
-												   Name = x.Name,
-												   AvatarHash = x.AvatarHash,
-												   Username = x.Username,
-												   Initials = x.Initials
-											   }).ToList(),
-									Labels = c.Labels.Select(x => new PrintCompactModels.Label() { Name = x.Name }).ToList()
-								}).ToList();
 		}
 
 		private bool AnyCrossMatch(IEnumerable<IComparable> a, IEnumerable<IComparable> b)
@@ -149,7 +122,7 @@ namespace TrelloWindow
 						from c in Trello.GetCards(board)
 						let bl = Trello.GetList(c.ListId)
 						where AnyCrossMatch(c.MemberIds, members.Select(x => x.Id))
-						where !printCards.Any(x => x.Id == c.Id)
+						where printCards.All(x => x.Id != c.Id)
 						orderby bl.Pos, c.Pos
 						select c
 					);
@@ -162,7 +135,7 @@ namespace TrelloWindow
 					printCards.AddRange(
 						from c in Trello.GetCards(board)
 						let bl = Trello.GetList(c.ListId)
-						where !printCards.Any(x => x.Id == c.Id)
+						where printCards.All(x => x.Id != c.Id)
 						orderby bl.Pos, c.Pos
 						select c
 					);
@@ -176,7 +149,7 @@ namespace TrelloWindow
 						from c in Trello.GetCards(member)
 						let b = Trello.GetBoard(c.BoardId)
 						let bl = Trello.GetList(c.ListId)
-						where !printCards.Any(x => x.Id == c.Id)
+						where printCards.All(x => x.Id != c.Id)
 						orderby b.Name, bl.Pos, c.Pos
 						select c
 					);
@@ -358,16 +331,14 @@ namespace TrelloWindow
 				var labelPanel = new StackPanel() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
 				foreach (var label in c.Labels)
 				{
-					var rgbColor = label.RgbColor;
-					SolidColorBrush color = new SolidColorBrush(
-						(rgbColor == null)
-						? Colors.White
-						: Color.FromArgb(128, rgbColor.Item1, rgbColor.Item2, rgbColor.Item3));
+					var rgbColor = label.GetRgbColor();
+					// Set lightly transparent
+					rgbColor.A = 128;
 
 					labelPanel.Children.Add(new TextBlock()
 					{
 						Text = label.Name,
-						Background = color,
+						Background = new SolidColorBrush(rgbColor),
 						FontSize = 10,
 						Margin = new Thickness(10, 0, 0, 0),
 						Padding = new Thickness(5, 0, 5, 0)
@@ -405,21 +376,21 @@ namespace TrelloWindow
 
 				if (avatarBitmap == null)
 				{
-					var b = new Border()
+					var b = new Border
 					{
 						BorderBrush = new SolidColorBrush(Color.FromRgb(0xaa, 0xaa, 0xaa)),
 						Background = new SolidColorBrush(Color.FromRgb(0xee, 0xee, 0xee)),
 						Width = 24,
 						Height = 24,
 						CornerRadius = new CornerRadius(16),
-						Margin = new Thickness(0, 0, 4, 0)
-					};
-					b.Child = new TextBlock()
-					{
-						Text = member.Initials,
-						FontSize = 12,
-						VerticalAlignment = VerticalAlignment.Center,
-						TextAlignment = TextAlignment.Center
+						Margin = new Thickness(0, 0, 4, 0),
+						Child = new TextBlock()
+						{
+							Text = member.Initials,
+							FontSize = 12,
+							VerticalAlignment = VerticalAlignment.Center,
+							TextAlignment = TextAlignment.Center
+						}
 					};
 					memberPanel.Children.Add(b);
 				}
