@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Packaging;
 using System.Linq;
@@ -88,7 +89,7 @@ namespace TrelloWindow
 			foreach (var board in boards.Where(x => !x.IsClosed).OrderByDescending(x => x.IsStarred).ThenBy(x => x.Name))
 			{
 				Model.Boards.Add(board);
-				
+
 				var boardMembers = await Task.Run(() => Trello.GetMembers(board));
 				foreach (var boardMember in boardMembers.OrderBy(x => x.Name))
 				{
@@ -156,16 +157,21 @@ namespace TrelloWindow
 				}
 			}
 
+			if (Model.DueDateLimit)
+			{
+				printCards.RemoveAll(x => !x.DueDate.HasValue);
+				printCards.RemoveAll(x => x.DueDate < DateTime.Today);
+				printCards.RemoveAll(x => DateTime.Now.AddDays(Model.DueDateDays) < x.DueDate);
+			}
+
 			if (!printCards.Any())
 				return;
 
-			var result = Print(printCards);
+			var result = CreateXps(printCards);
 			System.Diagnostics.Process.Start(result.FullName);
-
-			//todo:genomför utskrift
 		}
 
-		private FileInfo Print(IEnumerable<TrelloCard> cards)
+		private FileInfo CreateXps(IEnumerable<TrelloCard> cards)
 		{
 			// Denna siffra matchar innehållet som wpf-kontrollerna är breddanpassade efter, mindre siffra=mer zoom
 			const double contentWidth = 700;
@@ -442,10 +448,32 @@ namespace TrelloWindow
 
 	public class MainModel : INotifyPropertyChanged
 	{
+		private int _dueDateDays = 7;
+		private bool _dueDateLimit = false;
 		public HashSet<string> SelectedMemberIds { get; } = new HashSet<string>();
 		public HashSet<string> SelectedBoardIds { get; } = new HashSet<string>();
 		public ObservableCollection<TrelloMember> Members { get; } = new ObservableCollection<TrelloMember>();
 		public ObservableCollection<TrelloBoard> Boards { get; } = new ObservableCollection<TrelloBoard>();
+
+		public bool DueDateLimit
+		{
+			get { return _dueDateLimit; }
+			set
+			{
+				_dueDateLimit = value;
+				OnPropertyChanged(nameof(DueDateLimit));
+			}
+		}
+
+		public int DueDateDays
+		{
+			get { return _dueDateDays; }
+			set
+			{
+				_dueDateDays = value;
+				OnPropertyChanged(nameof(DueDateDays));
+			}
+		}
 
 		#region INotifyPropertyChanged
 

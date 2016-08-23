@@ -108,6 +108,13 @@
 
 		<StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="10">
 			<Button Content="Generera kompakt lista" Padding="10,5" FontWeight="Bold" Click="CompactListButtonBase_OnClick" />
+			<CheckBox VerticalAlignment="Center" Margin="10,0,0,0" IsChecked="{Binding DueDateLimit}">
+				<StackPanel Orientation="Horizontal">
+					<TextBlock Text="Enbart kort som förfaller inom" Margin="0,0,5,0" />
+					<TextBox Text="{Binding DueDateDays, StringFormat=N0}" IsEnabled="{Binding DueDateLimit}" Padding="5,0" />
+					<TextBlock Text="dagar" Margin="5,0,0,0" />
+				</StackPanel>
+			</CheckBox>
 		</StackPanel>
 
 	</Grid>
